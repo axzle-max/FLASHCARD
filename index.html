@@ -1,0 +1,985 @@
+<!doctype html><html><head><meta charset=utf8><meta name=viewport content="width=device-width,initial-scale=1,viewport-fit=cover"><style>:root{color-scheme:light;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}html{scroll-padding-top:env(safe-area-inset-top,0px)}body{margin:0;padding:0;font:14px -apple-system,BlinkMacSystemFont,sans-serif;background:#fff;color:#000}img{max-width:100%}[hidden]:not([hidden=until-found i]){display:none!important}</style></head><body>
+<title>Flashcard</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Caveat:wght@600&family=Noto+Sans+Thai:wght@400;600;700&family=Nunito:wght@400;600;700;800&family=Young+Serif&display=swap">
+<style>
+/* Layout: a recipe-box shelf. Decks are stacked card tiles with a ribbon bookmark; cards are ruled index cards that flip. */
+:root{
+  --display:"Young Serif","Noto Sans Thai",Georgia,serif;
+  --body:"Nunito","Noto Sans Thai",ui-rounded,system-ui,-apple-system,"Segoe UI",sans-serif;
+  --hand:"Caveat","Noto Sans Thai",cursive;
+  --ground:#E7DDC8; --paper:#FCF7EB; --edge:#D3C4A6; --ink:#3A2E27; --ink-2:#6B5B4E;
+  --moss:#4A6B47; --on-moss:#FFFFFF; --honey:#D9A03A; --rule:#B7C6D4; --margin:#D9786C;
+  --danger:#A6453D; --on-danger:#FFFFFF; --stitch:rgba(90,60,30,.045); --scrim:rgba(46,32,22,.5);
+  --d-moss:#5E7F58; --d-honey:#D9A03A; --d-rose:#C9726B; --d-sky:#6C93A8; --d-plum:#8A6A8E; --d-oak:#A07C58;
+  color-scheme:light;
+}
+@media (prefers-color-scheme:dark){
+  :root:not([data-theme="light"]){
+    --ground:#241E1A; --paper:#352C26; --edge:#4E4238; --ink:#F2E8D8; --ink-2:#C9BAA6;
+    --moss:#A8C89A; --on-moss:#1F2B1D; --honey:#E7B552; --rule:#566673; --margin:#C9776C;
+    --danger:#EE9A90; --on-danger:#2B1210; --stitch:rgba(255,235,210,.028); --scrim:rgba(0,0,0,.6);
+    --d-moss:#8DB384; --d-honey:#E4B04F; --d-rose:#E08A82; --d-sky:#85AFC4; --d-plum:#B58FBA; --d-oak:#C29C74;
+    color-scheme:dark;
+  }
+}
+:root[data-theme="dark"]{
+  --ground:#241E1A; --paper:#352C26; --edge:#4E4238; --ink:#F2E8D8; --ink-2:#C9BAA6;
+  --moss:#A8C89A; --on-moss:#1F2B1D; --honey:#E7B552; --rule:#566673; --margin:#C9776C;
+  --danger:#EE9A90; --on-danger:#2B1210; --stitch:rgba(255,235,210,.028); --scrim:rgba(0,0,0,.6);
+  --d-moss:#8DB384; --d-honey:#E4B04F; --d-rose:#E08A82; --d-sky:#85AFC4; --d-plum:#B58FBA; --d-oak:#C29C74;
+  color-scheme:dark;
+}
+*,*::before,*::after{box-sizing:border-box}
+html,body{height:100%}
+html.lock,html.lock body{overflow:hidden}
+body{
+  margin:0;background-color:var(--ground);color:var(--ink);
+  background-image:repeating-linear-gradient(135deg,var(--stitch) 0 2px,transparent 2px 8px),repeating-linear-gradient(45deg,var(--stitch) 0 2px,transparent 2px 8px);
+  font:400 1rem/1.5 var(--body);-webkit-text-size-adjust:100%;
+}
+button,input,textarea{font:inherit;color:inherit}
+button{touch-action:manipulation;-webkit-tap-highlight-color:transparent}
+h1,h2{margin:0;font-family:var(--display);font-weight:400;text-wrap:balance}
+p{margin:0}
+:focus-visible{outline:3px solid var(--ink);outline-offset:2px}
+.sr{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
+.muted{color:var(--ink-2)}
+.c-moss{--deck:var(--d-moss)} .c-honey{--deck:var(--d-honey)} .c-rose{--deck:var(--d-rose)}
+.c-sky{--deck:var(--d-sky)} .c-plum{--deck:var(--d-plum)} .c-oak{--deck:var(--d-oak)}
+
+#app{min-height:100%;display:flex;flex-direction:column}
+#app.is-study{height:100%}
+#main{flex:1;min-height:0;display:flex;flex-direction:column}
+
+/* top bar */
+.bar{position:sticky;top:env(safe-area-inset-top,0px);z-index:5;background:var(--ground);border-bottom:1px solid var(--edge)}
+.bar-in{max-width:1040px;margin:0 auto;min-height:60px;display:flex;align-items:center;justify-content:space-between;gap:10px;
+  padding-block:6px;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px))}
+.bar-end,.tools{display:flex;align-items:center;gap:10px;min-width:0}
+.brand{display:flex;align-items:center;gap:10px;font:400 1.4rem/1 var(--display)}
+.logo{flex:none}
+.sync{display:inline-flex;align-items:center;gap:6px;font-size:.8rem;font-weight:700;color:var(--ink-2)}
+.sync i{width:9px;height:9px;border-radius:50%;background:var(--d-moss);display:block}
+.sync[data-s="saving"] i{background:var(--honey)}
+.sync[data-s="error"] i{background:var(--danger)}
+.count{font:700 1rem/1 var(--body);font-variant-numeric:tabular-nums;color:var(--ink)}
+
+/* buttons */
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;min-height:44px;padding:0 18px;border:1px solid var(--edge);border-radius:999px;
+  background:var(--paper);color:var(--ink);font-weight:700;line-height:1;cursor:pointer;white-space:nowrap}
+.btn.primary{background:var(--moss);border-color:var(--moss);color:var(--on-moss)}
+.btn.ghost{background:transparent;border-color:transparent}
+.btn.danger{background:var(--danger);border-color:var(--danger);color:var(--on-danger)}
+.btn.danger-text{color:var(--danger)}
+.btn.warn{background:var(--danger);border-color:var(--danger);color:var(--on-danger)}
+.btn.lg{min-height:52px;padding:0 26px;font-size:1.1rem}
+.btn.sm{min-height:38px;padding:0 14px;font-size:.9rem}
+.btn:disabled,.round:disabled{opacity:.45;cursor:default}
+.chip{display:inline-flex;align-items:center;gap:6px;min-height:44px;min-width:44px;justify-content:center;padding:0 12px;border:1px solid var(--edge);border-radius:999px;background:var(--paper);font-weight:700;font-size:.9rem;cursor:pointer}
+.chip[aria-pressed="true"]{background:var(--moss);border-color:var(--moss);color:var(--on-moss)}
+.round{width:56px;height:56px;border-radius:50%;border:1px solid var(--edge);background:var(--paper);display:inline-flex;align-items:center;justify-content:center;cursor:pointer;flex:none}
+.round.primary{background:var(--moss);border-color:var(--moss);color:var(--on-moss)}
+.round .ic{width:26px;height:26px}
+@media (hover:hover){.btn:hover:not(:disabled),.chip:hover,.round:hover:not(:disabled){filter:brightness(.95)}}
+@media (max-width:540px){.chip .t{display:none}}
+
+/* pages */
+.page{width:100%;max-width:1040px;margin:0 auto;padding-block:22px 56px;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px))}
+.page-head{display:flex;flex-direction:column;gap:4px;margin-bottom:22px}
+.page h1{font-size:clamp(1.7rem,5vw,2.3rem);line-height:1.15}
+.sub{color:var(--ink-2);font-weight:600}
+.foot{margin-top:34px;color:var(--ink-2);font-size:.92rem;max-width:46ch}
+.empty-note{margin-top:20px;color:var(--ink-2);max-width:46ch}
+.notice{margin:8vh auto 0;max-width:440px;padding:24px;background:var(--paper);border:1px solid var(--edge);border-radius:10px;display:flex;flex-direction:column;gap:8px}
+.notice h2{font-size:1.4rem}
+
+/* deck tiles */
+.deck-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(min(100%,150px),1fr));gap:22px 16px}
+.tile{position:relative;display:flex;flex-direction:column;justify-content:flex-end;gap:4px;min-height:136px;padding:18px 14px 14px;margin-bottom:12px;text-align:left;
+  background:var(--paper);border:1px solid var(--edge);border-radius:8px;cursor:pointer;min-width:0;
+  box-shadow:0 5px 0 -2px var(--paper),0 5px 0 -1px var(--edge),0 10px 0 -4px var(--paper),0 10px 0 -3px var(--edge)}
+.tile .t-name{font:400 1.15rem/1.25 var(--display);display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden;overflow-wrap:anywhere}
+.tile .t-count{font-size:.88rem;font-weight:700;color:var(--ink-2)}
+.tile.new{align-items:center;justify-content:center;flex-direction:row;gap:8px;background:transparent;border:2px dashed var(--edge);box-shadow:none;font-weight:700;color:var(--ink-2)}
+.tile.ghosty{pointer-events:none;opacity:.55}
+.rib{position:absolute;top:-1px;right:14px;width:20px;height:34px;background:var(--deck);clip-path:polygon(0 0,100% 0,100% 100%,50% 76%,0 100%)}
+.rib.big{position:static;flex:none;width:24px;height:44px;margin-top:2px}
+
+/* deck page */
+.deckhead{display:flex;align-items:flex-start;gap:14px;margin-bottom:18px}
+.deckhead h1{overflow-wrap:anywhere}
+.actions{display:flex;flex-wrap:wrap;gap:10px;margin-bottom:20px}
+.searchrow{margin-bottom:16px}
+input[type="search"],input[type="text"]{width:100%;min-height:46px;padding:0 16px;border:1px solid var(--edge);border-radius:999px;background:var(--paper);font-size:1rem}
+input[type="search"]{max-width:420px}
+.card-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(min(100%,260px),1fr));gap:14px}
+.mini{display:flex;flex-direction:column;width:100%;min-width:0;padding:0;text-align:left;background:var(--paper);border:1px solid var(--edge);border-radius:8px;overflow:hidden;cursor:pointer;box-shadow:0 1px 0 var(--edge)}
+.mini-side{display:flex;align-items:flex-start;gap:10px;padding:10px 14px 12px;min-height:5.2rem;min-width:0}
+.mini-side+.mini-side{border-top:1px solid var(--rule)}
+.mini-side>div{flex:1;min-width:0}
+.lbl{display:block;font-size:.7rem;font-weight:800;letter-spacing:.14em;text-transform:uppercase;color:var(--ink-2);margin-bottom:2px}
+.mini-text{display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden;overflow-wrap:anywhere;white-space:pre-wrap;line-height:1.4}
+.mini-side.b .mini-text{-webkit-line-clamp:2;color:var(--ink-2)}
+.mini img{flex:none;width:46px;height:46px;border-radius:6px;object-fit:cover;border:1px solid var(--edge)}
+.empty-deck{padding:34px 20px;text-align:center;border:2px dashed var(--edge);border-radius:10px;display:flex;flex-direction:column;align-items:center;gap:12px}
+.empty-deck p{color:var(--ink-2);max-width:36ch}
+
+/* study */
+.study{flex:1;min-height:0;width:100%;max-width:860px;margin:0 auto;display:flex;flex-direction:column;gap:12px;padding-block:12px 14px;
+  padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px))}
+.progress{flex:none;height:6px;border-radius:99px;background:var(--edge);overflow:hidden}
+.progress i{display:block;height:100%;width:0;background:var(--honey);border-radius:inherit;transition:width .3s}
+.stage{flex:1;min-height:0;display:flex;align-items:center;justify-content:center}
+.flip{position:relative;width:100%;height:100%;max-height:640px;perspective:1600px;cursor:pointer;-webkit-tap-highlight-color:transparent}
+.flip-in{position:absolute;inset:0;transition:transform .55s cubic-bezier(.3,.8,.25,1);transform-style:preserve-3d;-webkit-transform-style:preserve-3d}
+.flip-in.snap{transition:none}
+.flip.on .flip-in{transform:rotateY(180deg)}
+.face{position:absolute;inset:0;display:flex;flex-direction:column;overflow:hidden;background:var(--paper);border:1px solid var(--edge);border-radius:10px;
+  backface-visibility:hidden;-webkit-backface-visibility:hidden;box-shadow:0 2px 0 var(--edge),0 12px 24px -14px rgba(40,25,10,.45)}
+.face.back{transform:rotateY(180deg)}
+.face-head{flex:none;padding:10px 20px 9px;border-bottom:2px solid var(--margin);font-size:.72rem;font-weight:800;letter-spacing:.16em;text-transform:uppercase;color:var(--ink-2)}
+.face-body{flex:1;min-height:0;overflow-y:auto;overscroll-behavior:contain;-webkit-overflow-scrolling:touch;display:flex;flex-direction:column;padding:16px 22px 22px}
+.fit{margin-block:auto;width:100%}
+.fpic{display:block;max-width:100%;max-height:min(38vh,320px);margin:0 auto 14px;border-radius:8px;object-fit:contain}
+.ftext{--lh:calc(var(--fs) * 1.5);font-size:var(--fs);line-height:var(--lh);white-space:pre-wrap;overflow-wrap:anywhere;
+  background-image:repeating-linear-gradient(to bottom,transparent 0,transparent calc(var(--lh) - 1px),var(--rule) calc(var(--lh) - 1px),var(--rule) var(--lh))}
+.fs-xl{--fs:2rem;font-weight:700} .fs-l{--fs:1.5rem;font-weight:600} .fs-m{--fs:1.2rem} .fs-s{--fs:1.05rem}
+.hint{flex:none;text-align:center;font:600 1.25rem/1 var(--hand);color:var(--ink-2)}
+.controls{flex:none;display:flex;align-items:center;justify-content:center;gap:16px}
+.finish{margin:auto;text-align:center;display:flex;flex-direction:column;align-items:center;gap:14px;padding:20px}
+.finish h2{font-size:1.9rem}
+.finish .row{display:flex;flex-wrap:wrap;gap:10px;justify-content:center;margin-top:6px}
+
+/* editor sheet */
+.sheet{position:fixed;inset:0;z-index:20;display:flex;flex-direction:column;background:var(--ground);overscroll-behavior:contain}
+.sheet-bar{flex:none;display:flex;align-items:center;justify-content:space-between;gap:10px;border-bottom:1px solid var(--edge);background:var(--ground);
+  min-height:calc(60px + env(safe-area-inset-top,0px));padding-top:env(safe-area-inset-top,0px);padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px))}
+.sheet-title{font-size:1.2rem}
+.sheet-body{flex:1;min-height:0;overflow-y:auto;-webkit-overflow-scrolling:touch;overscroll-behavior:contain;
+  padding-block:18px calc(40px + env(safe-area-inset-bottom,0px));padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px))}
+.wrapw{max-width:980px;margin:0 auto}
+.sides{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,340px),1fr));gap:16px}
+.panel{min-width:0;display:flex;flex-direction:column;gap:10px;padding:14px;background:var(--paper);border:1px solid var(--edge);border-radius:10px;border-top:3px solid var(--margin)}
+.panel-head{display:flex;align-items:center;justify-content:space-between;gap:10px}
+.panel-head label{font-size:.78rem;font-weight:800;letter-spacing:.16em;text-transform:uppercase;color:var(--ink-2)}
+.wc{font-size:.85rem;font-weight:700;color:var(--ink-2);font-variant-numeric:tabular-nums}
+.wc.over{color:var(--danger)}
+textarea{display:block;width:100%;min-height:9.5rem;resize:none;padding:2px 0;border:0;background-color:transparent;font-size:1.05rem;line-height:1.7rem;outline:0;overflow:hidden;
+  background-image:repeating-linear-gradient(to bottom,transparent 0,transparent calc(1.7rem - 1px),var(--rule) calc(1.7rem - 1px),var(--rule) 1.7rem)}
+.pic-add{display:flex;align-items:center;justify-content:center;gap:8px;min-height:52px;width:100%;border:2px dashed var(--edge);border-radius:10px;background:transparent;color:var(--ink-2);font-weight:700;cursor:pointer}
+.pic-has{display:flex;flex-direction:column;gap:10px;align-items:flex-start}
+.pic-has img{max-width:100%;max-height:260px;border-radius:8px;border:1px solid var(--edge);object-fit:contain}
+.pic-btns{display:flex;gap:8px;flex-wrap:wrap}
+.ed-msg{min-height:1.6em;margin-top:14px;font-weight:700;color:var(--ink-2)}
+.ed-msg.bad{color:var(--danger)}
+.ed-actions{display:flex;flex-wrap:wrap;align-items:center;gap:10px;margin-top:8px}
+.ed-actions .ask{font-weight:700}
+
+/* dialog */
+.scrim{position:fixed;inset:0;z-index:30;display:flex;overflow-y:auto;background:var(--scrim);
+  padding-top:max(16px,env(safe-area-inset-top,0px));padding-bottom:max(16px,env(safe-area-inset-bottom,0px));
+  padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px))}
+.dialog{width:100%;max-width:440px;margin:auto;padding:22px;background:var(--paper);border:1px solid var(--edge);border-radius:12px;display:flex;flex-direction:column;gap:14px}
+.dialog h2{font-size:1.4rem}
+.dialog label.l{font-weight:800;font-size:.78rem;letter-spacing:.14em;text-transform:uppercase;color:var(--ink-2)}
+.dialog fieldset{border:0;margin:0;padding:0;min-width:0}
+.dialog legend{padding:0;margin-bottom:8px;font-weight:800;font-size:.78rem;letter-spacing:.14em;text-transform:uppercase;color:var(--ink-2)}
+.swatches{display:flex;flex-wrap:wrap;gap:10px}
+.sw{position:relative;display:block}
+.sw input{position:absolute;opacity:0;inset:0;margin:0;cursor:pointer}
+.sw span.dot{display:block;width:42px;height:42px;border-radius:50%;background:var(--deck);border:3px solid var(--paper);box-shadow:0 0 0 1px var(--edge)}
+.sw input:checked+span.dot{box-shadow:0 0 0 3px var(--ink)}
+.sw input:focus-visible+span.dot{outline:3px solid var(--ink);outline-offset:3px}
+.dlg-actions{display:flex;flex-wrap:wrap;gap:10px;justify-content:flex-end}
+.zone{display:flex;flex-direction:column;gap:10px;padding-top:14px;border-top:1px solid var(--edge)}
+.zone p{color:var(--ink-2);font-size:.92rem}
+.dlg-msg{min-height:1.4em;font-weight:700;color:var(--danger)}
+
+.dialog.wide{max-width:560px}
+.dialog>*{min-width:0}
+.dialog .help{color:var(--ink-2);font-size:.95rem}
+.codebox{min-height:9rem;max-height:40vh;padding:12px 14px;border:1px solid var(--edge);border-radius:10px;background-color:var(--ground);background-image:none;color:var(--ink);
+  font:400 1rem/1.45 ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;resize:vertical;overflow:auto;outline-offset:2px}
+.imp-info{min-height:1.4em;font-weight:700;color:var(--ink-2)}
+.imp-info.ok{color:var(--moss)}
+.imp-info.bad{color:var(--danger)}
+.imp-warn{margin-top:2px;font-size:.88rem;font-weight:600;color:var(--ink-2)}
+.opt{display:flex;align-items:center;gap:10px;min-height:44px;font-weight:700;cursor:pointer}
+.opt input{width:20px;height:20px;margin:0;flex:none;accent-color:var(--moss)}
+.opt-sub{padding-left:30px;margin-bottom:6px}
+select{width:100%;min-height:46px;padding:0 14px;border:1px solid var(--edge);border-radius:999px;background:var(--paper);color:var(--ink);font-size:1rem}
+details.fmt{border:1px solid var(--edge);border-radius:10px;padding:2px 12px;background:var(--ground)}
+details.fmt summary{min-height:44px;display:flex;align-items:center;font-weight:700;cursor:pointer}
+details.fmt pre{margin:0 0 12px;overflow-x:auto;white-space:pre;font:400 .85rem/1.45 ui-monospace,SFMono-Regular,Menlo,Consolas,monospace}
+.row-btns{display:flex;flex-wrap:wrap;gap:10px}
+.toast{position:fixed;left:50%;transform:translateX(-50%);top:calc(env(safe-area-inset-top,0px) + 68px);z-index:40;max-width:min(92vw,420px);
+  padding:12px 18px;border-radius:999px;background:var(--ink);color:var(--ground);font-weight:700;text-align:center;pointer-events:none;box-shadow:0 8px 20px -8px rgba(0,0,0,.5)}
+
+@media (max-height:520px) and (orientation:landscape){
+  .bar-in{min-height:50px}
+  .hint{display:none}
+  .study{gap:8px;padding-block:8px 8px}
+  .fs-xl{--fs:1.5rem}.fs-l{--fs:1.25rem}.fs-m{--fs:1.1rem}.fs-s{--fs:1rem}
+  .fpic{max-height:min(34vh,200px)}
+  .round{width:48px;height:48px}
+  .face-body{padding:12px 18px 14px}
+}
+@media (prefers-reduced-motion:reduce){
+  .flip-in{transition:none}.progress i{transition:none}
+}
+</style>
+
+<div id="app">
+  <header class="bar" id="bar"></header>
+  <main id="main"></main>
+</div>
+<div class="sheet" id="sheet" hidden></div>
+<div class="scrim" id="dlg" hidden></div>
+<div class="toast" id="toast" role="status" hidden></div>
+
+<script>
+(function(){
+"use strict";
+var MAX_WORDS=200, SIDES=["front","back"], MAX_IMPORT=300;
+var COLORS=["moss","honey","rose","sky","plum","oak"];
+var COLOR_NAMES={moss:"Moss",honey:"Honey",rose:"Rose",sky:"Sky",plum:"Plum",oak:"Oak"};
+var S={status:"loading",decks:[],decksReady:false,view:"home",deckId:null,deckSeen:false,cards:[],cardsReady:false,q:"",study:null,pending:0,failed:false,deleting:null};
+var pref={shuffle:false,backFirst:false};
+try{var p0=JSON.parse(localStorage.getItem("cardigan-pref")||"{}");pref.shuffle=!!p0.shuffle;pref.backFirst=!!p0.backFirst}catch(e){}
+function savePref(){try{localStorage.setItem("cardigan-pref",JSON.stringify(pref))}catch(e){}}
+var db=null,assets=null,unsubDecks=null,unsubCards=null,healing=false,ED=null,DD=null,toastT=0,swiped=false;
+var $=function(s,r){return (r||document).querySelector(s)};
+var main=$("#main"),bar=$("#bar"),app=$("#app"),sheet=$("#sheet"),dlg=$("#dlg");
+
+/* ---------- helpers ---------- */
+function esc(t){return String(t==null?"":t).replace(/[&<>"']/g,function(c){return {"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]})}
+function plural(n,w){return n+" "+w+(n===1?"":"s")}
+function sleep(ms){return new Promise(function(r){setTimeout(r,ms)})}
+function cap(s){return s.charAt(0).toUpperCase()+s.slice(1)}
+function col(d){return COLORS.indexOf(d&&d.color)>-1?d.color:"moss"}
+function src(v){return v?(String(v).indexOf("data:")===0?v:"/_blob/"+v):""}
+var seg=(typeof Intl!=="undefined"&&Intl.Segmenter)?new Intl.Segmenter(undefined,{granularity:"word"}):null;
+function countWords(t){
+  if(!t) return 0;
+  if(seg){var n=0;for(var s of seg.segment(t)){if(s.isWordLike)n++}return n}
+  return (t.trim().match(/\S+/g)||[]).length;
+}
+function toast(msg){var t=$("#toast");t.textContent=msg;t.hidden=false;clearTimeout(toastT);toastT=setTimeout(function(){t.hidden=true},3200)}
+function errorText(e){
+  var c=e&&e.code;
+  if(c==="quota_exceeded"||c==="quota_or_state") return "Storage is full. Delete some cards or pictures, then try again.";
+  if(c==="invalid_argument") return "Only the account that owns this page can change these decks.";
+  if(c==="resource_exhausted"||c==="rate_limited") return "Too many changes at once. Wait a moment and try again.";
+  if(c==="revoked") return "Access to your decks changed. Reload the page.";
+  return "Couldn't save. Check your connection and try again.";
+}
+async function write(fn){
+  S.pending++;paintSync();
+  try{
+    var r;
+    try{r=await fn()}catch(e){
+      if(e&&e.code==="unavailable"){await sleep(400+Math.random()*400);r=await fn()}else throw e;
+    }
+    S.failed=false;return r;
+  }catch(e){S.failed=true;throw e}
+  finally{S.pending--;paintSync()}
+}
+function paintSync(){
+  var el=$("#sync");if(!el) return;
+  var st=S.pending>0?"saving":(S.failed?"error":"saved");
+  el.dataset.s=st;
+  el.querySelector("b").textContent=st==="saving"?"Saving…":st==="error"?"Not saved":"Saved";
+}
+function fail(e){
+  if(e&&e.code==="revoked"){S.status="unavailable";render();return}
+  S.failed=true;paintSync();
+}
+function shuffle(a){for(var i=a.length-1;i>0;i--){var j=Math.floor(Math.random()*(i+1));var t=a[i];a[i]=a[j];a[j]=t}return a}
+
+/* ---------- icons ---------- */
+var LOGO='<svg class="logo" viewBox="0 0 32 32" width="30" height="30" aria-hidden="true"><rect x="3" y="8" width="22" height="16" rx="3" transform="rotate(-9 14 16)" fill="var(--honey)"/><rect x="8" y="8" width="21" height="17" rx="3" fill="var(--paper)" stroke="var(--ink)" stroke-width="1.6"/><path d="M8.8 13.5h19.4" stroke="var(--margin)" stroke-width="1.6" fill="none"/><path d="M12 18h12M12 21.5h8" stroke="var(--rule)" stroke-width="1.6" stroke-linecap="round" fill="none"/></svg>';
+function ic(p){return '<svg class="ic" viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">'+p+'</svg>'}
+var I={
+  left:ic('<path d="M15 5l-7 7 7 7"/>'),right:ic('<path d="M9 5l7 7-7 7"/>'),plus:ic('<path d="M12 5v14M5 12h14"/>'),
+  play:ic('<path d="M8 5l11 7-11 7z"/>'),
+  shuffle:ic('<path d="M3 7h3c4 0 5 10 9 10h6M3 17h3c1.5 0 2.6-1.4 3.6-3M15 7h6M18 4l3 3-3 3M18 14l3 3-3 3"/>'),
+  swap:ic('<path d="M4 8h13l-3-3M20 16H7l3 3"/>'),
+  code:ic('<path d="M8 8l-4 4 4 4M16 8l4 4-4 4M13.5 5l-3 14"/>'),
+  img:ic('<rect x="3" y="5" width="18" height="14" rx="2"/><circle cx="9" cy="10" r="1.6"/><path d="M4 18l5-5 4 4 3-3 4 4"/>')
+};
+
+/* ---------- navigation ---------- */
+function render(){app.classList.toggle("is-study",S.view==="study");renderBar();renderMain()}
+function goHome(){closeCards();S.view="home";S.deckId=null;S.deckSeen=false;S.study=null;S.cards=[];S.cardsReady=false;render();window.scrollTo(0,0)}
+function openDeck(id){
+  closeCards();S.view="deck";S.deckId=id;S.cards=[];S.cardsReady=false;S.q="";S.study=null;
+  S.deckSeen=S.decks.some(function(d){return d.id===id});
+  subscribeCards(id);render();window.scrollTo(0,0);
+}
+function exitStudy(){S.study=null;S.view="deck";render()}
+function closeCards(){if(unsubCards){unsubCards();unsubCards=null}}
+
+/* ---------- data ---------- */
+function subscribeDecks(){
+  var timer=setTimeout(function(){if(!S.decksReady){S.decksReady=true;if(S.view==="home")renderMain()}},6000);
+  unsubDecks=db.collection("decks").orderBy("createdAt","asc").onSnapshot(function(snap){
+    S.decks=snap.docs.map(function(d){return Object.assign({id:d.id},d.data())});
+    var definitive=!snap.metadata.fromCache||snap.size>0;
+    if(definitive){S.decksReady=true;clearTimeout(timer)}
+    if(S.deckId){
+      var found=S.decks.some(function(d){return d.id===S.deckId});
+      if(found) S.deckSeen=true;
+      else if(S.deckSeen&&definitive&&S.deleting!==S.deckId){toast("That deck was deleted.");goHome();return}
+    }
+    if(S.view==="home") renderMain();
+    else if(S.view==="deck"){ if($("#deckPage")) paintDeckHead(); else renderMain(); }
+  },fail);
+}
+function subscribeCards(id){
+  var timer=setTimeout(function(){if(S.deckId===id&&!S.cardsReady){S.cardsReady=true;if(S.view==="deck")paintGrid()}},6000);
+  unsubCards=db.collection("decks/"+id+"/cards").orderBy("createdAt","asc").onSnapshot(function(snap){
+    if(S.deckId!==id) return;
+    S.cards=snap.docs.map(function(d){return Object.assign({id:d.id},d.data())});
+    if(!snap.metadata.fromCache||snap.size>0){S.cardsReady=true;clearTimeout(timer)}
+    if(S.view==="deck"){paintDeckHead();paintGrid()}
+    healCount(id,snap);
+  },fail);
+}
+async function healCount(id,snap){
+  if(snap.metadata.fromCache||healing||S.deleting===id) return;
+  var d=S.decks.find(function(x){return x.id===id});
+  if(!d||d.cardCount===snap.size) return;
+  healing=true;
+  try{await db.doc("decks/"+id).update({cardCount:snap.size})}catch(e){}finally{healing=false}
+}
+
+/* ---------- pictures ---------- */
+function loadImg(file){
+  return new Promise(function(res,rej){
+    var u=URL.createObjectURL(file),im=new Image();
+    im.onload=function(){res({im:im,u:u})};
+    im.onerror=function(){URL.revokeObjectURL(u);rej(new Error("bad image"))};
+    im.src=u;
+  });
+}
+async function toJpeg(file,maxSide,q){
+  var r=await loadImg(file);
+  try{
+    var w=r.im.naturalWidth,h=r.im.naturalHeight,k=Math.min(1,maxSide/Math.max(w,h));
+    w=Math.max(1,Math.round(w*k));h=Math.max(1,Math.round(h*k));
+    var c=document.createElement("canvas");c.width=w;c.height=h;
+    var x=c.getContext("2d");x.fillStyle="#fff";x.fillRect(0,0,w,h);x.drawImage(r.im,0,0,w,h);
+    return await new Promise(function(ok){c.toBlob(function(b){ok(b)},"image/jpeg",q)});
+  }finally{URL.revokeObjectURL(r.u)}
+}
+function readDataUrl(b){return new Promise(function(ok,no){var f=new FileReader();f.onload=function(){ok(f.result)};f.onerror=no;f.readAsDataURL(b)})}
+async function smallDataUrl(blob){
+  var side=720,q=.7,d="";
+  for(var i=0;i<5;i++){
+    var b=await toJpeg(blob,side,q);d=await readDataUrl(b);
+    if(d.length<90000) return d;
+    side=Math.round(side*.75);q=Math.max(.5,q-.07);
+  }
+  return d;
+}
+async function storeImage(blob){
+  if(assets){
+    try{var r=await assets.upload(blob,{type:"image/jpeg"});return r.id}
+    catch(e){var c=e&&e.code;if(c==="too_large"||c==="invalid_request") throw e}
+  }
+  return await smallDataUrl(blob);
+}
+async function dropImg(v){
+  if(!v||String(v).indexOf("data:")===0||!assets) return;
+  try{await assets.delete(v)}catch(e){}
+}
+
+/* ---------- bar ---------- */
+function syncHtml(){return '<span class="sync" id="sync" data-s="saved" title="Saved to your Claude account"><i></i><b>Saved</b></span>'}
+function renderBar(){
+  var brand='<div class="brand">'+LOGO+'<span>Cardigan</span></div>',h="";
+  if(S.status!=="ready") h=brand;
+  else if(S.view==="home") h=brand+'<div class="bar-end">'+syncHtml()+'<button class="btn primary" data-act="new-deck">'+I.plus+'<span>New deck</span></button></div>';
+  else if(S.view==="deck") h='<button class="btn ghost" data-act="home">'+I.left+'<span>Shelf</span></button><div class="bar-end">'+syncHtml()+'<button class="btn primary" data-act="new-card">'+I.plus+'<span>Card</span></button></div>';
+  else h='<button class="btn ghost" data-act="exit-study">'+I.left+'<span>Deck</span></button><span class="count" id="count"></span><div class="tools">'+
+    '<button class="chip" data-act="tg-shuffle" aria-pressed="'+pref.shuffle+'" title="Shuffle cards" aria-label="Shuffle cards">'+I.shuffle+'<span class="t">Shuffle</span></button>'+
+    '<button class="chip" data-act="tg-back" aria-pressed="'+pref.backFirst+'" title="Show the back first" aria-label="Show the back first">'+I.swap+'<span class="t">Back first</span></button></div>';
+  bar.innerHTML='<div class="bar-in">'+h+'</div>';
+  paintSync();
+  if(S.view==="study") paintCount();
+}
+
+/* ---------- main views ---------- */
+function renderMain(){
+  if(S.status==="loading"){
+    main.innerHTML='<section class="page"><div class="page-head"><h1>Your shelf</h1><p class="sub">Opening your decks…</p></div><div class="deck-grid"><div class="tile ghosty"></div><div class="tile ghosty"></div><div class="tile ghosty"></div></div></section>';return;
+  }
+  if(S.status==="unavailable"){
+    main.innerHTML='<section class="page"><div class="notice"><h2>Storage isn\'t reachable here</h2><p class="muted">Cardigan saves your decks to your Claude account. Open this page in claude.ai or the Claude app while signed in, then reload.</p></div></section>';return;
+  }
+  if(S.status==="private"){
+    main.innerHTML='<section class="page"><div class="notice"><h2>This shelf is private</h2><p class="muted">Only the account that created Cardigan can open these decks.</p></div></section>';return;
+  }
+  if(S.view==="home") renderHome(); else if(S.view==="deck") renderDeck(); else renderStudy();
+}
+function tileHTML(d){
+  return '<button class="tile c-'+col(d)+'" data-act="open-deck" data-id="'+esc(d.id)+'"><i class="rib"></i><span class="t-name">'+esc(d.name||"Untitled deck")+'</span><span class="t-count">'+plural(d.cardCount||0,"card")+'</span></button>';
+}
+function renderHome(){
+  if(!S.decksReady){
+    main.innerHTML='<section class="page"><div class="page-head"><h1>Your shelf</h1><p class="sub">Opening your decks…</p></div><div class="deck-grid"><div class="tile ghosty"></div><div class="tile ghosty"></div><div class="tile ghosty"></div></div></section>';return;
+  }
+  var total=S.decks.reduce(function(a,d){return a+(d.cardCount||0)},0);
+  var sub=S.decks.length?plural(S.decks.length,"deck")+" · "+plural(total,"card"):"No decks yet";
+  main.innerHTML='<section class="page"><div class="page-head"><h1>Your shelf</h1><p class="sub">'+sub+'</p></div>'+
+    '<div class="deck-grid">'+S.decks.map(tileHTML).join("")+'<button class="tile new" data-act="new-deck">'+I.plus+'<span>New deck</span></button><button class="tile new" data-act="import">'+I.code+'<span>Add from code</span></button></div>'+
+    (S.decks.length?"":'<p class="empty-note">A deck holds as many cards as you like. Make one for each subject you study.</p>')+
+    '<p class="foot">Everything saves to your Claude account as you go. Sign in on another device and your decks are there.</p></section>';
+}
+function renderDeck(){
+  var d=S.decks.find(function(x){return x.id===S.deckId});
+  if(!d){main.innerHTML='<section class="page"><p class="muted">Opening deck…</p></section>';return}
+  main.innerHTML='<section class="page deckpage c-'+col(d)+'" id="deckPage">'+
+    '<div class="deckhead"><i class="rib big"></i><div><h1 id="deckTitle"></h1><p class="sub" id="deckSub"></p></div></div>'+
+    '<div class="actions"><button class="btn primary lg" id="studyBtn" data-act="study">'+I.play+'<span>Study</span></button><button class="btn" data-act="import">'+I.code+'<span>Add from code</span></button><button class="btn" data-act="edit-deck">Edit deck</button></div>'+
+    '<div class="searchrow" id="searchRow" hidden><label class="sr" for="q">Search cards</label><input id="q" type="search" placeholder="Search this deck" autocomplete="off"></div>'+
+    '<div id="grid"></div></section>';
+  $("#q").value=S.q;paintDeckHead();paintGrid();
+}
+function paintDeckHead(){
+  var d=S.decks.find(function(x){return x.id===S.deckId}),pg=$("#deckPage");
+  if(!d||!pg) return;
+  pg.className="page deckpage c-"+col(d);
+  $("#deckTitle").textContent=d.name||"Untitled deck";
+  var n=S.cardsReady?S.cards.length:(d.cardCount||0);
+  $("#deckSub").textContent=plural(n,"card");
+  $("#studyBtn").disabled=!S.cards.length;
+}
+function sideMini(c,s){
+  var t=c[s+"Text"]||"",im=c[s+"Img"];
+  return '<div class="mini-side '+(s==="back"?"b":"")+'"><div><span class="lbl">'+cap(s)+'</span><span class="mini-text">'+(t?esc(t):'<i class="muted">Picture</i>')+'</span></div>'+(im?'<img src="'+esc(src(im))+'" alt="" loading="lazy">':"")+'</div>';
+}
+function paintGrid(){
+  var g=$("#grid");if(!g) return;
+  var sr=$("#searchRow");if(sr) sr.hidden=S.cards.length<6;
+  if(!S.cardsReady){g.innerHTML='<p class="muted">Loading cards…</p>';return}
+  if(!S.cards.length){
+    g.innerHTML='<div class="empty-deck"><h2>No cards yet</h2><p>Each card has a front and a back. Add text, a picture, or both.</p><button class="btn primary lg" data-act="new-card">'+I.plus+'<span>Add the first card</span></button><button class="btn" data-act="import">'+I.code+'<span>Add from code</span></button></div>';return;
+  }
+  var q=S.q.trim().toLowerCase();
+  var list=q?S.cards.filter(function(c){return ((c.frontText||"")+" "+(c.backText||"")).toLowerCase().indexOf(q)>-1}):S.cards;
+  if(!list.length){g.innerHTML='<p class="muted">No cards match “'+esc(S.q.trim())+'”.</p>';return}
+  g.innerHTML='<div class="card-grid">'+list.map(function(c){
+    return '<button class="mini" data-act="edit-card" data-id="'+esc(c.id)+'">'+sideMini(c,"front")+sideMini(c,"back")+'</button>';
+  }).join("")+'</div>';
+}
+
+/* ---------- study ---------- */
+function startStudy(){if(!S.cards.length) return;S.view="study";restartStudy();window.scrollTo(0,0)}
+function restartStudy(){
+  var cards=S.cards.slice();
+  if(!cards.length){exitStudy();return}
+  var order=cards.map(function(_,i){return i});
+  if(pref.shuffle) shuffle(order);
+  S.study={cards:cards,order:order,i:0,done:false,flipped:pref.backFirst};
+  render();
+}
+function faceHTML(side,c){
+  var t=c[side+"Text"]||"",im=c[side+"Img"],n=countWords(t);
+  var cls=n<=8?"fs-xl":n<=25?"fs-l":n<=70?"fs-m":"fs-s";
+  return '<div class="face-head">'+cap(side)+'</div><div class="face-body"><div class="fit">'+
+    (im?'<img class="fpic" src="'+esc(src(im))+'" alt="Picture on the '+side+' of the card">':"")+
+    (t?'<p class="ftext '+cls+'">'+esc(t)+'</p>':"")+'</div></div>';
+}
+function renderStudy(){
+  var st=S.study;if(!st) return;
+  if(st.done){
+    main.innerHTML='<div class="finish"><h2>That was the whole deck</h2><p class="muted">You went through '+plural(st.order.length,"card")+'.</p><div class="row"><button class="btn primary lg" data-act="again">Study again</button><button class="btn lg" data-act="exit-study">Back to deck</button></div></div>';
+    paintCount();return;
+  }
+  main.innerHTML='<div class="study"><div class="progress"><i id="prog"></i></div>'+
+    '<div class="stage"><div class="flip" id="flip" role="button" tabindex="0" aria-label="Flip card" data-act="flip"><div class="flip-in" id="flipIn"><div class="face front" id="faceF"></div><div class="face back" id="faceB"></div></div></div></div>'+
+    '<p class="hint">Tap the card to flip it. Swipe to move on.</p>'+
+    '<div class="controls"><button class="round" data-act="prev" aria-label="Previous card">'+I.left+'</button><button class="btn lg" data-act="flip">Flip</button><button class="round primary" data-act="next" aria-label="Next card">'+I.right+'</button></div></div>';
+  paintStudy(true);
+}
+function paintCount(){
+  var el=$("#count"),st=S.study;if(!el||!st) return;
+  el.textContent=st.done?"Done":(st.i+1)+" / "+st.order.length;
+}
+function paintStudy(snap){
+  var st=S.study;if(!st||st.done) return;
+  var c=st.cards[st.order[st.i]],fi=$("#flipIn"),fl=$("#flip");
+  if(!fi||!fl) return;
+  if(snap) fi.classList.add("snap");
+  $("#faceF").innerHTML=faceHTML("front",c);
+  $("#faceB").innerHTML=faceHTML("back",c);
+  fl.classList.toggle("on",st.flipped);
+  $("#faceF").setAttribute("aria-hidden",st.flipped?"true":"false");
+  $("#faceB").setAttribute("aria-hidden",st.flipped?"false":"true");
+  $("#prog").style.width=((st.i+1)/st.order.length*100)+"%";
+  $('[data-act="prev"]').disabled=st.i===0;
+  paintCount();
+  if(snap){void fi.offsetWidth;fi.classList.remove("snap")}
+}
+function flip(){
+  var st=S.study;if(!st||st.done) return;
+  st.flipped=!st.flipped;
+  $("#flip").classList.toggle("on",st.flipped);
+  $("#faceF").setAttribute("aria-hidden",st.flipped?"true":"false");
+  $("#faceB").setAttribute("aria-hidden",st.flipped?"false":"true");
+}
+function go(d){
+  var st=S.study;if(!st||st.done) return;
+  if(d>0){if(st.i>=st.order.length-1){st.done=true;renderStudy();return}st.i++}
+  else{if(st.i===0) return;st.i--}
+  st.flipped=pref.backFirst;paintStudy(true);
+}
+
+/* ---------- card editor ---------- */
+function mkSide(card,s){
+  var im=card?(card[s+"Img"]||null):null;
+  return {text:card?(card[s+"Text"]||""):"",img:im,orig:im,blob:null,url:null};
+}
+function panelHTML(s){
+  return '<section class="panel"><div class="panel-head"><label for="tx-'+s+'">'+cap(s)+'</label><span class="wc" id="wc-'+s+'"></span></div>'+
+    '<textarea id="tx-'+s+'" data-side="'+s+'" rows="5" maxlength="4000" placeholder="'+(s==="front"?"Question, word or prompt":"Answer or meaning")+'"></textarea>'+
+    '<div class="pic" id="pic-'+s+'"></div><input type="file" id="file-'+s+'" data-side="'+s+'" accept="image/*" hidden></section>';
+}
+function openEditor(id){
+  if(!db||!S.deckId) return;
+  var card=null;
+  if(id){card=S.cards.find(function(c){return c.id===id});if(!card){toast("That card is gone.");return}}
+  releaseUrls();
+  ED={cardId:id||null,dirty:false,saving:false,askDiscard:false,askDelete:false,side:{front:mkSide(card,"front"),back:mkSide(card,"back")}};
+  sheet.innerHTML='<div class="sheet-bar"><button class="btn ghost" id="edCancel" data-act="ed-cancel">Cancel</button><h2 class="sheet-title">'+(ED.cardId?"Edit card":"New card")+'</h2><button class="btn primary" id="edSave" data-act="ed-save">Save</button></div>'+
+    '<div class="sheet-body"><div class="wrapw"><div class="sides">'+panelHTML("front")+panelHTML("back")+'</div><p class="ed-msg" id="edMsg" role="status"></p><div class="ed-actions" id="edActions"></div></div></div>';
+  sheet.hidden=false;document.documentElement.classList.add("lock");
+  SIDES.forEach(function(s){var ta=$("#tx-"+s);ta.value=ED.side[s].text;paintPic(s);paintCount2(s);autosize(ta)});
+  paintEdActions();
+  var body=$(".sheet-body",sheet);if(body) body.scrollTop=0;
+  if(!id) $("#tx-front").focus();
+}
+function releaseUrls(){if(!ED) return;SIDES.forEach(function(s){var sd=ED.side[s];if(sd.url){URL.revokeObjectURL(sd.url);sd.url=null}})}
+function closeEditor(){releaseUrls();ED=null;sheet.hidden=true;sheet.innerHTML="";document.documentElement.classList.remove("lock")}
+function autosize(ta){ta.style.height="auto";ta.style.height=(ta.scrollHeight+2)+"px"}
+function paintCount2(s){
+  var n=countWords(ED.side[s].text),el=$("#wc-"+s);
+  el.textContent=n+" / "+MAX_WORDS+" words";
+  el.classList.toggle("over",n>MAX_WORDS);
+}
+function paintPic(s){
+  var sd=ED.side[s],el=$("#pic-"+s),u=sd.blob?sd.url:(sd.img?src(sd.img):null);
+  el.innerHTML=u?
+    '<div class="pic-has"><img src="'+esc(u)+'" alt="Picture on the '+s+'"><div class="pic-btns"><button type="button" class="btn sm" data-act="ed-pick" data-side="'+s+'">Replace</button><button type="button" class="btn sm ghost" data-act="ed-remove" data-side="'+s+'">Remove</button></div></div>':
+    '<button type="button" class="pic-add" data-act="ed-pick" data-side="'+s+'">'+I.img+'<span>Add a picture</span></button>';
+}
+function paintEdActions(){
+  var el=$("#edActions");if(!el||!ED) return;
+  var h='<button class="btn" data-act="ed-again"'+(ED.saving?" disabled":"")+'>Save and add another</button>';
+  if(ED.cardId){
+    h+=ED.askDelete?
+      '<span class="ask">Delete this card?</span><button class="btn danger" data-act="ed-delete-yes">Yes, delete</button><button class="btn ghost" data-act="ed-delete-no">Keep it</button>':
+      '<button class="btn ghost danger-text" data-act="ed-delete">Delete card</button>';
+  }
+  el.innerHTML=h;
+}
+function showMsg(t,bad){var m=$("#edMsg");if(!m) return;m.textContent=t||"";m.classList.toggle("bad",!!bad)}
+function validate(){
+  var errs=[];
+  SIDES.forEach(function(s){
+    var sd=ED.side[s],n=countWords(sd.text);
+    if(n>MAX_WORDS) errs.push(cap(s)+" is "+plural(n-MAX_WORDS,"word")+" over the "+MAX_WORDS+"-word limit.");
+    else if(!sd.text.trim()&&!sd.img&&!sd.blob) errs.push(cap(s)+" needs some text or a picture.");
+  });
+  return errs;
+}
+async function pickFile(inp){
+  var s=inp.dataset.side,f=inp.files&&inp.files[0];
+  inp.value="";
+  if(!f||!ED) return;
+  showMsg("Preparing picture…");
+  try{
+    var b=await toJpeg(f,1280,.82);
+    if(!b) throw new Error("no blob");
+    var sd=ED.side[s];
+    if(sd.url) URL.revokeObjectURL(sd.url);
+    sd.blob=b;sd.url=URL.createObjectURL(b);ED.dirty=true;paintPic(s);showMsg("");
+  }catch(e){showMsg("That picture couldn't be opened. Try a JPG or PNG.",true)}
+}
+async function saveEditor(again){
+  if(!ED||ED.saving) return;
+  var errs=validate();
+  if(errs.length){showMsg(errs.join(" "),true);return}
+  ED.saving=true;$("#edSave").disabled=true;$("#edSave").textContent="Saving…";paintEdActions();showMsg("");
+  var deckId=S.deckId,uploaded=[],out={};
+  try{
+    for(var i=0;i<SIDES.length;i++){
+      var s=SIDES[i],sd=ED.side[s];
+      if(sd.blob){out[s]=await storeImage(sd.blob);uploaded.push(out[s])}
+      else out[s]=sd.img;
+    }
+    var now=Date.now(),col=db.collection("decks/"+deckId+"/cards");
+    var ref=ED.cardId?col.doc(ED.cardId):col.doc();
+    var data={frontText:ED.side.front.text.trim(),frontImg:out.front||null,backText:ED.side.back.text.trim(),backImg:out.back||null,updatedAt:now};
+    if(ED.cardId) await write(function(){return ref.update(data)});
+    else{data.createdAt=now;await write(function(){return ref.set(data)})}
+  }catch(e){
+    uploaded.forEach(dropImg);
+    if(ED){ED.saving=false;$("#edSave").disabled=false;$("#edSave").textContent="Save";paintEdActions();showMsg(errorText(e),true)}
+    return;
+  }
+  SIDES.forEach(function(s){var o=ED.side[s].orig;if(o&&o!==out[s]) dropImg(o)});
+  toast(again?"Card saved. Add the next one.":"Card saved");
+  if(again) openEditor(null); else closeEditor();
+}
+function cancelEditor(){
+  if(!ED||ED.saving) return;
+  if(ED.dirty&&!ED.askDiscard){
+    ED.askDiscard=true;
+    var b=$("#edCancel");b.textContent="Discard changes?";b.classList.add("warn");
+    setTimeout(function(){if(ED&&ED.askDiscard&&b.isConnected){ED.askDiscard=false;b.textContent="Cancel";b.classList.remove("warn")}},3500);
+    return;
+  }
+  closeEditor();
+}
+async function deleteCard(){
+  if(!ED||!ED.cardId) return;
+  var id=ED.cardId,deckId=S.deckId,f=ED.side.front.orig,b=ED.side.back.orig;
+  ED.saving=true;
+  try{
+    await write(function(){return db.doc("decks/"+deckId+"/cards/"+id).delete()});
+    dropImg(f);dropImg(b);closeEditor();toast("Card deleted");
+  }catch(e){ED.saving=false;ED.askDelete=false;paintEdActions();showMsg(errorText(e),true)}
+}
+
+/* ---------- deck dialog ---------- */
+function dialogHTML(deck){
+  var sw=COLORS.map(function(c){
+    return '<label class="sw c-'+c+'"><input type="radio" name="col" value="'+c+'"'+(DD.color===c?" checked":"")+'><span class="dot"></span><span class="sr">'+COLOR_NAMES[c]+'</span></label>';
+  }).join("");
+  var zone=deck?'<div class="zone" id="zone"></div>':"";
+  return '<form class="dialog" id="deckForm" role="dialog" aria-modal="true" aria-label="'+(deck?"Edit deck":"New deck")+'">'+
+    '<h2>'+(deck?"Edit deck":"New deck")+'</h2>'+
+    '<div><label class="l" for="dn">Deck name</label><input id="dn" type="text" maxlength="60" placeholder="e.g. Biology chapter 4" autocomplete="off"></div>'+
+    '<fieldset><legend>Ribbon colour</legend><div class="swatches">'+sw+'</div></fieldset>'+
+    '<p class="dlg-msg" id="dlgMsg" role="status"></p>'+
+    '<div class="dlg-actions"><button type="button" class="btn ghost" data-act="dlg-cancel">Cancel</button><button type="submit" class="btn primary" id="dlgSave">'+(deck?"Save":"Create deck")+'</button></div>'+zone+'</form>';
+}
+function paintZone(){
+  var z=$("#zone");if(!z||!DD) return;
+  var d=S.decks.find(function(x){return x.id===DD.id}),n=d?(d.cardCount||0):0;
+  if(DD.busyDelete){z.innerHTML='<p>'+esc(DD.prog||"Deleting…")+'</p>';return}
+  z.innerHTML=DD.ask?
+    '<p>This deletes the deck and its '+plural(n,"card")+'. It can\'t be undone.</p><div class="dlg-actions"><button type="button" class="btn ghost" data-act="dd-no">Keep deck</button><button type="button" class="btn danger" data-act="dd-yes">Yes, delete deck</button></div>':
+    '<button type="button" class="btn ghost danger-text" data-act="dd-ask">Delete deck</button>';
+}
+function openDeckDialog(id){
+  if(!db) return;
+  var deck=id?S.decks.find(function(d){return d.id===id}):null;
+  DD={id:deck?deck.id:null,color:deck?col(deck):COLORS[S.decks.length%COLORS.length],busy:false,ask:false,busyDelete:false,prog:""};
+  dlg.innerHTML=dialogHTML(deck);dlg.hidden=false;document.documentElement.classList.add("lock");
+  $("#dn").value=deck?(deck.name||""):"";
+  paintZone();
+  if(!deck) $("#dn").focus();
+}
+function closeDialog(){DD=null;IM=null;dlg.hidden=true;dlg.innerHTML="";if(sheet.hidden) document.documentElement.classList.remove("lock")}
+function dlgMsg(t){var m=$("#dlgMsg");if(m) m.textContent=t||""}
+async function saveDeck(){
+  if(!DD||DD.busy) return;
+  var name=($("#dn").value||"").trim().slice(0,60)||"Untitled deck";
+  var ci=dlg.querySelector('input[name="col"]:checked'),color=ci?ci.value:DD.color;
+  DD.busy=true;$("#dlgSave").disabled=true;dlgMsg("");
+  try{
+    var now=Date.now();
+    if(DD.id){
+      var did=DD.id;
+      await write(function(){return db.doc("decks/"+did).update({name:name,color:color,updatedAt:now})});
+      closeDialog();toast("Deck saved");
+    }else{
+      var ref=db.collection("decks").doc();
+      await write(function(){return ref.set({name:name,color:color,cardCount:0,createdAt:now,updatedAt:now})});
+      closeDialog();openDeck(ref.id);
+    }
+  }catch(e){if(DD){DD.busy=false;$("#dlgSave").disabled=false;dlgMsg(errorText(e))}}
+}
+async function deleteDeck(){
+  if(!DD||!DD.id) return;
+  var id=DD.id;S.deleting=id;DD.busyDelete=true;DD.prog="Deleting cards…";paintZone();
+  try{
+    var snap=await db.collection("decks/"+id+"/cards").get(),n=0;
+    for(var i=0;i<snap.docs.length;i++){
+      var d=snap.docs[i],c=d.data(),did=d.id;
+      await write(function(){return db.doc("decks/"+id+"/cards/"+did).delete()});
+      dropImg(c.frontImg);dropImg(c.backImg);n++;
+      DD.prog="Deleting cards… "+n+" of "+snap.docs.length;paintZone();
+    }
+    await write(function(){return db.doc("decks/"+id).delete()});
+    closeDialog();goHome();toast("Deck deleted");
+  }catch(e){
+    if(DD){DD.busyDelete=false;DD.ask=false;paintZone();dlgMsg(errorText(e))}
+  }finally{S.deleting=null}
+}
+
+/* ---------- import from code ---------- */
+var IM=null;
+var GUIDE=[
+"Write flashcards for me as one JSON code block in exactly this format:",
+"",
+"{",
+'  "deck": "Deck name",',
+'  "color": "moss",',
+'  "cards": [',
+'    { "front": "Question, word or prompt", "back": "Answer or meaning" }',
+"  ]",
+"}",
+"",
+"Rules:",
+'- "color" is optional: moss, honey, rose, sky, plum or oak.',
+"- Each front and back is plain text of up to 200 words.",
+"- Use \\n inside a string for a line break.",
+"- Reply with only the code block."
+].join("\n");
+function pickKey(o,keys){for(var i=0;i<keys.length;i++){if(o[keys[i]]!=null) return o[keys[i]]}return null}
+function parseImport(text){
+  var t=String(text||"").trim();
+  if(!t) return {empty:true,cards:[],problems:[]};
+  var fence=t.match(/```[a-zA-Z]*\s*([\s\S]*?)```/);
+  if(fence) t=fence[1].trim();
+  var a=t.search(/[\[{]/);
+  if(a<0) return {error:"No cards found. Paste the code block Claude wrote.",cards:[],problems:[]};
+  var close=t[a]==="{"?"}":"]",b=t.lastIndexOf(close),data;
+  try{data=JSON.parse(t.slice(a,b+1))}catch(e){return {error:"That code isn't valid JSON. Ask Claude to send it again as one code block.",cards:[],problems:[]}}
+  var isArr=Array.isArray(data);
+  var list=isArr?data:(data&&(data.cards||data.flashcards));
+  if(!Array.isArray(list)||!list.length) return {error:"The code has no cards in it.",cards:[],problems:[]};
+  var name=isArr?"":String(data.deck||data.name||data.title||"").trim().slice(0,60);
+  var color=(!isArr&&COLORS.indexOf(data.color)>-1)?data.color:null;
+  var cards=[],problems=[];
+  list.forEach(function(c,i){
+    var f=null,bk=null,n=i+1;
+    if(Array.isArray(c)){f=c[0];bk=c[1]}
+    else if(c&&typeof c==="object"){f=pickKey(c,["front","q","question","term"]);bk=pickKey(c,["back","a","answer","definition"])}
+    f=f==null?"":String(f).replace(/\r\n/g,"\n").trim();
+    bk=bk==null?"":String(bk).replace(/\r\n/g,"\n").trim();
+    if(!f||!bk){problems.push("Card "+n+" is missing its front or back.");return}
+    if(countWords(f)>MAX_WORDS||countWords(bk)>MAX_WORDS){problems.push("Card "+n+" is over "+MAX_WORDS+" words on one side.");return}
+    if(f.length>4000||bk.length>4000){problems.push("Card "+n+" is too long.");return}
+    cards.push({front:f,back:bk});
+  });
+  if(cards.length>MAX_IMPORT){problems.push("Only the first "+MAX_IMPORT+" cards are added at a time.");cards=cards.slice(0,MAX_IMPORT)}
+  if(!cards.length) return {error:"None of the cards could be used. "+(problems[0]||""),cards:[],problems:problems};
+  return {cards:cards,problems:problems,name:name,color:color};
+}
+function importHTML(){
+  var has=S.decks.length>0;
+  var opts=S.decks.map(function(d){return '<option value="'+esc(d.id)+'">'+esc(d.name||"Untitled deck")+'</option>'}).join("");
+  var target=has?
+    '<fieldset><legend>Where should they go?</legend>'+
+    '<label class="opt"><input type="radio" name="tgt" value="new"><span>A new deck</span></label>'+
+    '<div class="opt-sub"><label class="sr" for="impName">New deck name</label><input id="impName" type="text" maxlength="60" placeholder="Deck name" autocomplete="off"></div>'+
+    '<label class="opt"><input type="radio" name="tgt" value="old"><span>An existing deck</span></label>'+
+    '<div class="opt-sub"><label class="sr" for="impDeck">Existing deck</label><select id="impDeck">'+opts+'</select></div></fieldset>':
+    '<div><label class="l" for="impName">New deck name</label><input id="impName" type="text" maxlength="60" placeholder="Deck name" autocomplete="off"></div>';
+  return '<form class="dialog wide" id="importForm" role="dialog" aria-modal="true" aria-label="Add cards from code">'+
+    '<h2>Add cards from code</h2>'+
+    '<p class="help">Ask Claude to write your cards as code, then paste it here. Copy the instructions first so Claude uses the right format.</p>'+
+    '<div class="row-btns"><button type="button" class="btn sm" data-act="imp-copy">Copy instructions for Claude</button></div>'+
+    '<details class="fmt" id="fmt"><summary>See the format</summary><pre id="fmtPre">'+esc(GUIDE)+'</pre></details>'+
+    '<div><label class="l" for="code">Paste the code</label><textarea id="code" class="codebox" spellcheck="false" autocapitalize="off" autocorrect="off" placeholder="Paste here"></textarea></div>'+
+    '<div id="impInfo" class="imp-info" role="status"></div>'+target+
+    '<div class="dlg-actions"><button type="button" class="btn ghost" data-act="imp-cancel">Cancel</button><button type="submit" class="btn primary" id="impGo" disabled>Add cards</button></div></form>';
+}
+function openImport(){
+  if(!db) return;
+  var fromDeck=S.view==="deck"&&S.deckId&&S.decks.some(function(d){return d.id===S.deckId});
+  IM={text:"",parsed:{empty:true,cards:[],problems:[]},target:fromDeck?"old":"new",
+    deckId:fromDeck?S.deckId:(S.decks[0]?S.decks[0].id:null),name:"",nameTouched:false,targetTouched:!!fromDeck,busy:false,prog:""};
+  dlg.innerHTML=importHTML();dlg.hidden=false;document.documentElement.classList.add("lock");
+  paintImport();
+  $("#code").focus();
+}
+function onCode(){
+  var p=parseImport(IM.text);IM.parsed=p;
+  if(!IM.nameTouched) IM.name=p.name||"";
+  if(!IM.targetTouched&&S.decks.length){
+    var m=p.name?S.decks.find(function(d){return (d.name||"").trim().toLowerCase()===p.name.toLowerCase()}):null;
+    if(m){IM.target="old";IM.deckId=m.id}else IM.target="new";
+  }
+  paintImport();
+}
+function paintImport(){
+  if(!IM) return;
+  var p=IM.parsed,info=$("#impInfo"),go=$("#impGo");
+  if(!info||!go) return;
+  var isNew=!S.decks.length||IM.target==="new";
+  dlg.querySelectorAll('input[name="tgt"]').forEach(function(r){r.checked=r.value===(isNew?"new":"old")});
+  var nm=$("#impName"),dk=$("#impDeck");
+  if(nm&&!IM.nameTouched) nm.value=IM.name;
+  if(dk&&IM.deckId) dk.value=IM.deckId;
+  if(IM.busy){info.className="imp-info";info.textContent=IM.prog;go.disabled=true;return}
+  if(p.empty){info.className="imp-info";info.textContent="";go.disabled=true;go.textContent="Add cards";return}
+  if(p.error){info.className="imp-info bad";info.textContent=p.error;go.disabled=true;go.textContent="Add cards";return}
+  info.className="imp-info ok";
+  info.innerHTML=esc(plural(p.cards.length,"card")+" ready"+(p.name?" for “"+p.name+"”":"")+".")+
+    (p.problems.length?'<div class="imp-warn">'+esc(p.problems.slice(0,3).join(" ")+(p.problems.length>3?" And "+(p.problems.length-3)+" more.":"")+" Those cards are skipped.")+'</div>':"");
+  go.disabled=false;go.textContent="Add "+plural(p.cards.length,"card");
+}
+function cardKey(f,b){return (String(f).trim()+"\u0001"+String(b).trim()).toLowerCase()}
+async function runImport(){
+  if(!IM||IM.busy) return;
+  var p=IM.parsed;
+  if(!p||!p.cards||!p.cards.length) return;
+  var isNew=!S.decks.length||IM.target==="new";
+  var nmEl=$("#impName");
+  var name=((nmEl&&nmEl.value)||"").trim().slice(0,60)||p.name||"New deck";
+  var color=p.color||COLORS[S.decks.length%COLORS.length];
+  var deckId=isNew?null:IM.deckId,added=0,dup=0,existingN=0;
+  IM.busy=true;IM.prog="Adding cards…";paintImport();
+  try{
+    var now=Date.now();
+    if(isNew){
+      var dref=db.collection("decks").doc();deckId=dref.id;
+      await write(function(){return dref.set({name:name,color:color,cardCount:0,createdAt:now,updatedAt:now})});
+      IM.target="old";IM.deckId=deckId;
+    }
+    if(!deckId) throw new Error("no deck");
+    var col=db.collection("decks/"+deckId+"/cards"),seen=new Set(),snap=await col.get();
+    snap.docs.forEach(function(d){var c=d.data();seen.add(cardKey(c.frontText||"",c.backText||""))});
+    existingN=snap.size;
+    var todo=[];
+    p.cards.forEach(function(c){var k=cardKey(c.front,c.back);if(seen.has(k)){dup++}else{seen.add(k);todo.push(c)}});
+    for(var i=0;i<todo.length;i+=4){
+      var chunk=todo.slice(i,i+4);
+      await Promise.all(chunk.map(function(c,j){
+        var t=now+1+i+j,r=col.doc();
+        return write(function(){return r.set({frontText:c.front,frontImg:null,backText:c.back,backImg:null,createdAt:t,updatedAt:t})});
+      }));
+      added+=chunk.length;
+      IM.prog="Adding cards… "+added+" of "+todo.length;paintImport();
+    }
+    try{await write(function(){return db.doc("decks/"+deckId).update({cardCount:existingN+added,updatedAt:Date.now()})})}catch(e){}
+    closeDialog();openDeck(deckId);
+    toast("Added "+plural(added,"card")+(dup?" · skipped "+plural(dup,"duplicate"):""));
+  }catch(e){
+    if(IM){
+      IM.busy=false;paintImport();
+      var inf=$("#impInfo");
+      if(inf){inf.className="imp-info bad";inf.textContent=(added?"Added "+plural(added,"card")+" before it stopped. ":"")+errorText(e)+" Tap Add again to continue. Cards already added are skipped."}
+    }
+  }
+}
+function copyGuide(){
+  var ok=function(){toast("Copied. Paste it to Claude first.")};
+  var no=function(){
+    var f=$("#fmt");if(f) f.open=true;
+    var pr=$("#fmtPre");
+    if(pr){var r=document.createRange();r.selectNodeContents(pr);var sl=window.getSelection();sl.removeAllRanges();sl.addRange(r)}
+    toast("Select the format text and copy it.");
+  };
+  try{navigator.clipboard.writeText(GUIDE).then(ok,no)}catch(e){no()}
+}
+
+/* ---------- events ---------- */
+document.addEventListener("click",function(e){
+  if(e.target===dlg&&((DD&&!DD.busy&&!DD.busyDelete)||(IM&&!IM.busy&&!IM.text))){closeDialog();return}
+  var t=e.target.closest("[data-act]");if(!t) return;
+  var a=t.dataset.act;
+  switch(a){
+    case "new-deck":openDeckDialog(null);break;
+    case "import":openImport();break;
+    case "imp-cancel":if(IM&&!IM.busy) closeDialog();break;
+    case "imp-copy":copyGuide();break;
+    case "open-deck":openDeck(t.dataset.id);break;
+    case "home":goHome();break;
+    case "edit-deck":openDeckDialog(S.deckId);break;
+    case "new-card":openEditor(null);break;
+    case "edit-card":openEditor(t.dataset.id);break;
+    case "study":startStudy();break;
+    case "exit-study":exitStudy();break;
+    case "again":restartStudy();break;
+    case "prev":go(-1);break;
+    case "next":go(1);break;
+    case "flip":if(swiped){swiped=false;break}flip();break;
+    case "tg-shuffle":pref.shuffle=!pref.shuffle;savePref();restartStudy();break;
+    case "tg-back":pref.backFirst=!pref.backFirst;savePref();if(S.study&&!S.study.done){S.study.flipped=pref.backFirst}renderBar();paintStudy(true);break;
+    case "ed-cancel":cancelEditor();break;
+    case "ed-save":saveEditor(false);break;
+    case "ed-again":saveEditor(true);break;
+    case "ed-pick":if(ED){var fi=$("#file-"+t.dataset.side);if(fi) fi.click()}break;
+    case "ed-remove":if(ED){var sd=ED.side[t.dataset.side];if(sd.url){URL.revokeObjectURL(sd.url)}sd.blob=null;sd.url=null;sd.img=null;ED.dirty=true;paintPic(t.dataset.side)}break;
+    case "ed-delete":if(ED){ED.askDelete=true;paintEdActions()}break;
+    case "ed-delete-no":if(ED){ED.askDelete=false;paintEdActions()}break;
+    case "ed-delete-yes":deleteCard();break;
+    case "dlg-cancel":if(DD&&!DD.busyDelete) closeDialog();break;
+    case "dd-ask":if(DD){DD.ask=true;paintZone()}break;
+    case "dd-no":if(DD){DD.ask=false;paintZone()}break;
+    case "dd-yes":deleteDeck();break;
+  }
+});
+document.addEventListener("input",function(e){
+  var t=e.target;
+  if(t.id==="q"){S.q=t.value;paintGrid();return}
+  if(IM&&t.id==="code"){IM.text=t.value;onCode();return}
+  if(IM&&t.id==="impName"){IM.name=t.value;IM.nameTouched=true;if(IM.target!=="new"){IM.target="new";IM.targetTouched=true;paintImport()}return}
+  if(ED&&t.matches&&t.matches("textarea[data-side]")){
+    var s=t.dataset.side;ED.side[s].text=t.value;ED.dirty=true;paintCount2(s);autosize(t);
+    var m=$("#edMsg");if(m&&m.classList.contains("bad")) showMsg("");
+  }
+});
+document.addEventListener("change",function(e){
+  var t=e.target;
+  if(IM&&t.name==="tgt"){IM.target=t.value;IM.targetTouched=true;paintImport();return}
+  if(IM&&t.id==="impDeck"){IM.deckId=t.value;IM.target="old";IM.targetTouched=true;paintImport();return}
+  if(t.matches&&t.matches('input[type="file"][data-side]')) pickFile(t);
+});
+document.addEventListener("submit",function(e){
+  if(e.target.id==="deckForm"){e.preventDefault();saveDeck()}
+  else if(e.target.id==="importForm"){e.preventDefault();runImport()}
+});
+document.addEventListener("keydown",function(e){
+  if(!dlg.hidden){if(e.key==="Escape"&&((DD&&!DD.busy&&!DD.busyDelete)||(IM&&!IM.busy))) closeDialog();return}
+  if(!sheet.hidden){if(e.key==="Escape") cancelEditor();return}
+  if(S.view!=="study"||!S.study) return;
+  var tg=e.target;
+  if(tg.closest&&tg.closest("input,textarea")) return;
+  if(e.key==="ArrowRight") go(1);
+  else if(e.key==="ArrowLeft") go(-1);
+  else if(e.key==="Escape") exitStudy();
+  else if(e.key===" "||e.key==="Enter"){
+    if(tg.closest&&tg.closest("button")) return;
+    e.preventDefault();flip();
+  }
+});
+var tx0=0,ty0=0;
+main.addEventListener("touchstart",function(e){
+  if(S.view!=="study") return;
+  var t=e.changedTouches[0];tx0=t.clientX;ty0=t.clientY;swiped=false;
+},{passive:true});
+main.addEventListener("touchend",function(e){
+  if(S.view!=="study"||!S.study||S.study.done) return;
+  var t=e.changedTouches[0],dx=t.clientX-tx0,dy=t.clientY-ty0;
+  if(Math.abs(dx)>60&&Math.abs(dx)>Math.abs(dy)*1.6){swiped=true;go(dx<0?1:-1)}
+},{passive:true});
+
+/* ---------- boot ---------- */
+async function boot(){
+  render();
+  try{
+    if(!window.claude||!window.claude.use) throw new Error("no runtime");
+    var r=await Promise.all([window.claude.use("db"),window.claude.use("assets"),window.claude.use("user")]);
+    db=r[0];assets=r[1];
+    var u=r[2];
+    if(!db){S.status="unavailable";render();return}
+    var owner=null;
+    try{if(u&&u.isOwner) owner=await u.isOwner()}catch(e){}
+    if(owner===false){S.status="private";render();return}
+    S.status="ready";render();subscribeDecks();
+  }catch(e){S.status="unavailable";render()}
+}
+boot();
+})();
+</script>
+
+</body></html>
